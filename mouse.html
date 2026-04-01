@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi User Cursor Tracker</title>
+</head>
+<body>
+
+<h2>Move your mouse anywhere</h2>
+
+<script>
+    const socket = new WebSocket("ws://localhost:8080/ws");
+
+    // Unique user ID
+    const userId = "user_" + Math.random().toString(36).substr(2, 9);
+
+    // Store all cursors
+    const cursors = {};
+
+    socket.onopen = () => {
+        console.log("Connected as", userId);
+    };
+
+    let lastSentTime = 0;
+    const delay = 75;
+
+    // Send mouse position
+    document.addEventListener("mousemove", (event) => {
+        const now = Date.now();
+
+        if (now - lastSentTime >= delay) {
+            lastSentTime = now;
+
+            const data = {
+                userId: userId,
+                x: event.clientX,
+                y: event.clientY
+            };
+
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(data));
+            }
+        }
+    });
+
+    // Receive data from server
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        const { userId, x, y } = data;
+
+        // If cursor doesn't exist → create it
+        if (!cursors[userId]) {
+            const cursor = document.createElement("div");
+            cursor.className = "cursor";
+            cursor.style.backgroundColor = getRandomColor();
+
+            document.body.appendChild(cursor);
+            cursors[userId] = cursor;
+        }
+
+        // Move cursor
+        const cursor = cursors[userId];
+        cursor.style.left = x + "px";
+        cursor.style.top = y + "px";
+    };
+
+    // Random color for each user
+    function getRandomColor() {
+        return "#" + Math.floor(Math.random()*16777215).toString(16);
+    }
+</script>
+
+<style>
+.cursor {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+</style>
+
+</body>
+</html>
